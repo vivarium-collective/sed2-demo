@@ -10,7 +10,7 @@ def run_comparison_experiment(core):
             "_type": "step",
             "address": "local:TelluriumUTCStep",
             "config": {
-                "model_file": "models/BIOMD0000000012_url.xml",
+                "model_source": "models/BIOMD0000000012_url.xml",
                 "interval": 10,
                 "n_points": 100,
             },
@@ -22,7 +22,7 @@ def run_comparison_experiment(core):
             "_type": "step",
             "address": "local:CopasiUTCStep",
             "config": {
-                "model_file": "models/BIOMD0000000012_url.xml",
+                "model_source": "models/BIOMD0000000012_url.xml",
                 "interval": 10,
                 "n_points": 100,
             },
