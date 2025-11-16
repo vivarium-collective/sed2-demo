@@ -9,6 +9,7 @@ from basico import (
     get_reactions,
     set_species,
     run_time_course,
+    run_steadystate,
 )
 import COPASI
 
@@ -51,9 +52,6 @@ def _get_transient_concentration(name, dm):
 
 
 class CopasiUTCStep(Step):
-    """
-    ODE component of the dfba hybrid using COPASI (basico + direct COPASI API).
-    """
 
     config_schema = {
         'model_source': 'string',
@@ -147,6 +145,241 @@ class CopasiUTCStep(Step):
             model=self.dm,
         )
 
+        # time is the index
+        time_list = tc.index.to_list()
+
+        # species time series
+        species_json = {
+            s: tc[s].to_list()
+            for s in self.species_names
+            if s in tc.columns
+        }
+
+        # reaction flux time series (optional)
+        flux_json = {
+            r: tc[r].to_list()
+            for r in self.reaction_names
+            if r in tc.columns
+        }
+
+        results = {
+            "time": time_list,
+            "species_concentrations": species_json,
+            "reaction_fluxes": flux_json,
+        }
+
+        # Everything is now pure Python lists and dicts — fully JSON serializable
+        return {"results": results}
+
+
+class CopasiSteadyStateStep(Step):
+
+    config_schema = {
+        'model_source': 'string',
+        'time': 'float',  # kept for symmetry with CopasiUTCStep, not used
+    }
+
+    def __init__(self, config=None, core=None):
+        super().__init__(config, core)
+
+        model_source = self.config['model_source']
+
+        # Make sure the path is correct (relative to this file if needed)
+        if not (model_source.startswith('http://') or model_source.startswith('https://')):
+            model_path = Path(model_source)
+            if not model_path.is_absolute():
+                # go to the *project root*, not the processes/ directory
+                project_root = Path(__file__).parent.parent
+                model_path = project_root / model_path
+            model_source = str(model_path)
+
+        # basico DataModel
+        self.dm = load_model(model_source)
+
+        if self.dm is None:
+            raise RuntimeError(
+                f"load_model({model_source!r}) returned None. "
+                "Check that the file exists and is a valid COPASI/SBML model."
+            )
+
+        # underlying COPASI CModel
+        self.cmodel = self.dm.getModel()
+
+        spec_df = get_species(model=self.dm)
+        self.species_names = spec_df.index.tolist()
+
+        rxn_df = get_reactions(model=self.dm)
+        self.reaction_names = rxn_df.index.tolist()
+
+    def initial_state(self) -> Dict[str, Any]:
+        """
+        Just report the current transient concentrations as the starting point.
+        (Same pattern as CopasiUTCStep.)
+        """
+        species_concentrations = {
+            name: _get_transient_concentration(name=name, dm=self.dm)
+            for name in self.species_names
+        }
+
+        return {
+            'species_concentrations': species_concentrations,
+        }
+
+    def inputs(self):
+        return {
+            'species_concentrations': 'map[float]',
+            'species_counts': 'map[float]',
+        }
+
+    def outputs(self):
+        return {
+            'results': 'any',
+        }
+
+    def update(self, inputs):
+        # --- 1) Prepare changes and update initial values efficiently ---
+
+        # Prefer counts if present, otherwise concentrations
+        spec_data = inputs.get('species_counts') or inputs.get('species_concentrations') or {}
+
+        changes = [
+            (name, float(value))
+            for name, value in spec_data.items()
+            if name in self.species_names
+        ]
+
+        if changes:
+            _set_initial_concentrations(changes, self.dm)
+
+        # --- 2) Run COPASI steady-state task ---
+        # After run_steadystate(update_model=True), get_species/get_reactions
+        # contain steady-state values.
+        run_steadystate(update_model=True, model=self.dm)
+
+        # --- 3) Read back steady-state species concentrations ---
+        spec_df = get_species(model=self.dm)
+        # basico steady-state example uses the 'concentration' column
+        species_conc_ss = {
+            name: float(spec_df.loc[name, 'concentration'])
+            for name in self.species_names
+            if name in spec_df.index
+        }
+
+        # --- 4) Read back steady-state reaction fluxes ---
+        rxn_df = get_reactions(model=self.dm)
+        reaction_fluxes_ss = {
+            rxn_id: float(rxn_df.loc[rxn_id, 'flux'])
+            for rxn_id in self.reaction_names
+            if rxn_id in rxn_df.index
+        }
+
+        # --- 5) Package as a one-point "time series" to match CopasiUTCStep ---
+        time_list = [0.0]  # single steady-state time point
+
+        species_json = {name: [value] for name, value in species_conc_ss.items()}
+        flux_json = {rid: [value] for rid, value in reaction_fluxes_ss.items()}
+
+        results = {
+            "time": time_list,
+            "species_concentrations": species_json,
+            "reaction_fluxes": flux_json,
+        }
+
+        return {"results": results}
+
+
+class CopasiUTCProcess(Process):
+
+    config_schema = {
+        'model_source': 'string',
+    }
+
+    def __init__(self, config=None, core=None):
+        super().__init__(config, core)
+
+        model_source = self.config['model_source']
+
+        # Make sure the path is correct (relative to this file if needed)
+        if not (model_source.startswith('http://') or model_source.startswith('https://')):
+            model_path = Path(model_source)
+            if not model_path.is_absolute():
+                # go to the *project root*, not the processes/ directory
+                project_root = Path(__file__).parent.parent
+                model_path = project_root / model_path
+            model_source = str(model_path)
+
+        # basico DataModel
+        self.dm = load_model(model_source)
+
+        if self.dm is None:
+            raise RuntimeError(
+                f"load_model({model_source!r}) returned None. "
+                "Check that the file exists and is a valid COPASI/SBML model."
+            )
+
+        # underlying COPASI CModel (used by the speed-up helpers)
+        self.cmodel = self.dm.getModel()
+
+        spec_df = get_species(model=self.dm)
+        self.species_names = spec_df.index.tolist()
+
+        rxn_df = get_reactions(model=self.dm)
+        self.reaction_names = rxn_df.index.tolist()
+
+    def initial_state(self) -> Dict[str, Any]:
+        species_concentrations = {
+            name: _get_transient_concentration(name=name, dm=self.dm)
+            for name in self.species_names
+        }
+
+        rxn_df = get_reactions(model=self.dm)
+        reaction_fluxes = {
+            rxn_id: float(rxn_df.loc[rxn_id, 'flux'])
+            for rxn_id in self.reaction_names
+        }
+
+        return {
+            'species_concentrations': species_concentrations,
+            # 'reaction_fluxes': reaction_fluxes,
+        }
+
+    def inputs(self):
+        return {
+            'species_concentrations': 'map[float]',
+            'species_counts': 'map[float]',
+        }
+
+    def outputs(self):
+        # Keep nested 'results' for now to match your original API.
+        return {
+            'species_concentrations': 'map[float]',
+            'reaction_fluxes': 'map[float]',
+        }
+
+    def update(self, inputs, interval):
+        # --- 1) Prepare changes and update initial values efficiently ---
+
+        # You can swap this to inputs['species_concentrations'] if that’s the true source
+        spec_data = inputs.get('species_counts', {}) or {}
+
+        # Only include species that actually exist in the model
+        changes = [
+            (name, float(value))
+            for name, value in spec_data.items()
+            if name in self.species_names
+        ]
+
+        if changes:
+            _set_initial_concentrations(changes, self.dm)
+
+        # --- 2) Run COPASI time course ---
+        tc = run_time_course(
+            start_time=0.0,
+            duration=interval,
+            update_model=True,
+            model=self.dm,
+        )
+
         # --- 3) Read back state using the fast helper ---
         species_concentrations = {
             name: _get_transient_concentration(name=name, dm=self.dm)
@@ -160,12 +393,11 @@ class CopasiUTCStep(Step):
             for rxn_id in self.reaction_names
         }
 
-        results = {
+        return {
             'species_concentrations': species_concentrations,
             'reaction_fluxes': reaction_fluxes,
         }
 
-        return {'results': results}
 
 
 def run_test(core):

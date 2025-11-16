@@ -1,196 +1,151 @@
-"""
-Tellurium Process
-"""
+import os
+from pathlib import Path
+from typing import Dict, Any
 
-import numpy as np
+from process_bigraph import Step, ProcessTypes
 import tellurium as te
-from process_bigraph import Process, Composite, pf, Step
-
 
 
 class TelluriumUTCStep(Step):
+    """
+    Minimal Tellurium ODE Step.
+    Uses only:
+        - te.loadSBMLModel()
+        - rr.simulate()
+
+    Output format matches CopasiUTCStep exactly.
+    """
 
     config_schema = {
-        'sbml_model_path': 'string',
-        'antimony_string': 'string',
+        "model_source": "string",
+        "time": "float",      # duration
+        "n_points": "integer" # time samples
     }
 
     def __init__(self, config=None, core=None):
         super().__init__(config, core)
 
-        # initialize a tellurium(roadrunner) simulation object. Load the model in using either sbml(default) or antimony
-        if self.config.get('antimony_string') and not self.config.get('sbml_model_path'):
-            self.simulator = te.loada(self.config['antimony_string'])
-        elif self.config.get('sbml_model_path') and not self.config.get('antimony_string'):
-            self.simulator: te.roadrunner.extended_roadrunner.ExtendedRoadRunner = te.loadSBMLModel(self.config['sbml_model_path'])
-        else:
-            raise Exception('the config requires either an "antimony_string" or an "sbml_model_path"')
+        model_source = self.config["model_source"]
 
-        self.input_ports = [
-            'floating_species',
-            'boundary_species',
-            'model_parameters'
-        ]
+        # ----- Resolve path like CopasiUTCStep -----
+        if not model_source.startswith(("http://", "https://")):
+            model_path = Path(model_source)
+            if not model_path.is_absolute():
+                project_root = Path(__file__).parent.parent
+                model_path = project_root / model_path
+            model_source = str(model_path)
 
-        self.output_ports = [
-            'floating_species',
-        ]
+        # ----- Minimal Tellurium load -----
+        try:
+            self.rr = te.loadSBMLModel(model_source)
+        except Exception as e:
+            raise RuntimeError(f"Could not load SBML model: {model_source}\n{e}")
 
-        # Get the species (floating and boundary)
-        self.floating_species_list = self.simulator.getFloatingSpeciesIds()
-        self.boundary_species_list = self.simulator.getBoundarySpeciesIds()
-        self.floating_species_initial = self.simulator.getFloatingSpeciesConcentrations()
-        self.boundary_species_initial = self.simulator.getBoundarySpeciesConcentrations()
+        # ----- Cache IDs -----
+        self.species_ids = list(self.rr.getFloatingSpeciesIds())
+        self.reaction_ids = list(self.rr.getReactionIds())
+        self._species_index = {sid: i for i, sid in enumerate(self.species_ids)}
 
-        # Get the list of parameters and their values
-        self.model_parameters_list = self.simulator.getGlobalParameterIds()
-        self.model_parameter_values = self.simulator.getGlobalParameterValues()
+        # ----- sim parameters -----
+        self.interval = float(self.config.get("time", 1.0))
+        self.n_points = int(self.config.get("n_points", 2))
 
-        # Get a list of reactions
-        self.reaction_list = self.simulator.getReactionIds()
-
-    # TODO -- is initial state even working for steps?
-    def initial_state(self, config=None):
-        return {}
-
-    def inputs(self):
+    # ------------------------------------------------
+    # process-bigraph API
+    # ------------------------------------------------
+    def initial_state(self) -> Dict[str, Any]:
+        conc = self.rr.getFloatingSpeciesConcentrations()
         return {
-            'run_time': 'float',
-        }
-
-    def outputs(self):
-        return {
-            'results': {
-                '_type': 'numpy_array',
-                '_apply': 'set'
-            }  # This is a roadrunner._roadrunner.NamedArray
-        }
-
-    def update(self, inputs):
-        results = self.simulator.simulate(
-            inputs['time'],
-            inputs['run_time'],
-            10
-        )  # TODO -- adjust the number of saves teps
-        return {
-            'results': results}
-
-
-class TelluriumProcess(Process):
-    config_schema = {
-        'record_history': 'maybe[boolean]',  # TODO -- do we have this type?
-        'model': SEDModelType().to_dict(),
-        'method': {
-            '_default': 'cvode',
-            '_type': 'string'
-        },
-        'species_context': {
-            '_default': 'concentrations',
-            '_type': 'string'
-        },
-        'num_steps': 'maybe[integer]'
-    }
-
-    simulator: te.roadrunner.extended_roadrunner.ExtendedRoadRunner
-
-    def __init__(self, config=None, core=None):
-        super().__init__(config, core)
-
-        model_source = self.config['model']['model_source']
-        if '/' in model_source:
-            self.simulator = te.loadSBMLModel(model_source)
-        else:
-            if 'model' in model_source:  # TODO: find a better way to do this
-                self.simulator = te.loada(model_source)
-            else:
-                raise Exception('the config requires either an "antimony_string" or an "sbml_model_path"')
-
-        # handle context type (concentrations for deterministic by default)
-        context_type = self.config['species_context']
-        self.species_context_key = f'floating_species_{context_type}'
-        self.use_counts = 'concentrations' in context_type
-
-        # TODO -- make this configurable.
-        self.input_ports = [
-            self.species_context_key,
-            'boundary_species',
-            'model_parameters'
-            'time']
-
-        self.output_ports = [
-            self.species_context_key,
-            'time']
-
-        # Get the species (floating and boundary)
-        self.floating_species_list = self.simulator.getFloatingSpeciesIds()
-        self.boundary_species_list = self.simulator.getBoundarySpeciesIds()
-        self.floating_species_initial = self.simulator.getFloatingSpeciesConcentrations()
-        self.boundary_species_initial = self.simulator.getBoundarySpeciesConcentrations()
-
-        # Get the list of parameters and their values
-        self.model_parameters_list = self.simulator.getGlobalParameterIds()
-        self.model_parameter_values = self.simulator.getGlobalParameterValues()
-
-        # Get a list of reactions
-        self.reaction_list = self.simulator.getReactionIds()
-
-    def initial_state(self, config=None):
-        floating_species_dict = dict(zip(self.floating_species_list, self.floating_species_initial))
-        boundary_species_dict = dict(zip(self.boundary_species_list, self.boundary_species_initial))
-        model_parameters_dict = dict(zip(self.model_parameters_list, self.model_parameter_values))
-        return {
-            'time': 0.0,
-            self.species_context_key: floating_species_dict,
-            # 'boundary_species': boundary_species_dict,
-            'model_parameters': model_parameters_dict
-        }
-
-    def inputs(self):
-        float_set = {'_type': 'float', '_apply': 'set'}
-        return {
-            self.species_context_key: {
-                species_id: float_set for species_id in self.floating_species_list},
-            # 'boundary_species': {
-                # species_id: float_set for species_id in self.boundary_species_list},
-            'model_parameters': {
-                param_id: float_set for param_id in self.model_parameters_list},
-            'reactions': {
-                reaction_id: float_set for reaction_id in self.reaction_list},
-        }
-
-    def outputs(self):
-        float_set = {'_type': 'float', '_apply': 'set'}
-        return {
-            self.species_context_key: {
-                species_id: float_set for species_id in self.floating_species_list},
-        }
-
-    def update(self, inputs, interval):
-
-        # set tellurium values according to what is passed in states
-        for port_id, values in inputs.items():
-            if port_id in self.input_ports:  # only update from input ports
-                for cat_id, value in values.items():
-                    self.simulator.setValue(cat_id, value)
-
-        for cat_id, value in inputs[self.species_context_key].items():
-            self.simulator.setValue(cat_id, value)
-
-        # run the simulation
-        result = self.simulator.oneStep(inputs['time'], interval)
-
-        # extract the results and convert to update
-        update = {
-            'time': interval,  # new_time,
-            self.species_context_key: {
-                mol_id: float(self.simulator.getValue(mol_id))
-                for mol_id in self.floating_species_list
+            "species_concentrations": {
+                sid: float(conc[i]) for i, sid in enumerate(self.species_ids)
             }
         }
 
-        """for port_id, values in inputs.items():
-            if port_id in self.output_ports:
-                update[port_id] = {}
-                for cat_id in values.keys():
-                    update[port_id][cat_id] = self.simulator.getValue(cat_id)"""
-        return update
+    def inputs(self):
+        return {
+            "species_concentrations": "map[float]",
+            "species_counts": "map[float]",
+        }
+
+    def outputs(self):
+        return {"results": "any"}
+
+    # ------------------------------------------------
+    # update logic
+    # ------------------------------------------------
+    def update(self, inputs):
+        # Choose source (like CopasiUTCStep)
+        incoming = (
+            inputs.get("species_counts")
+            or inputs.get("species_concentrations")
+            or {}
+        )
+
+        # Update concentrations
+        conc_vec = list(self.rr.getFloatingSpeciesConcentrations())
+        for sid, value in incoming.items():
+            idx = self._species_index.get(sid)
+            if idx is not None:
+                conc_vec[idx] = float(value)
+        self.rr.setFloatingSpeciesConcentrations(conc_vec)
+
+        # Run simulation
+        tc = self.rr.simulate(0, self.interval, self.n_points)
+        colnames = list(tc.colnames)
+
+        # Time
+        time = tc[:, colnames.index("time")].tolist()
+
+        # Species trajectories
+        species_json = {}
+        species_cols = {}
+        for sid in self.species_ids:
+            if sid in colnames:
+                idx = colnames.index(sid)
+                species_cols[sid] = idx
+                species_json[sid] = tc[:, idx].tolist()
+
+        # Reaction fluxes
+        flux_json = {rid: [] for rid in self.reaction_ids}
+        saved = list(self.rr.getFloatingSpeciesConcentrations())
+
+        for row in range(tc.shape[0]):
+            row_conc = [tc[row, species_cols[sid]] for sid in self.species_ids]
+            self.rr.setFloatingSpeciesConcentrations(row_conc)
+
+            rates = self.rr.getReactionRates()
+            for j, rid in enumerate(self.reaction_ids):
+                flux_json[rid].append(float(rates[j]))
+
+        # restore last state
+        self.rr.setFloatingSpeciesConcentrations(row_conc)
+
+        # JSON-safe result
+        return {
+            "results": {
+                "time": time,
+                "species_concentrations": species_json,
+                "reaction_fluxes": flux_json,
+            }
+        }
+
+
+# Simple test like Copasi
+def run_test(core):
+    step = TelluriumUTCStep(
+        {
+            "model_source": "models/BIOMD0000000012_url.xml",
+            "time": 3000,
+            "n_points": 5000,
+        },
+        core=core,
+    )
+
+    print("Initial:", step.initial_state())
+    print("Results:", step.update(step.initial_state()))
+
+
+if __name__ == "__main__":
+    core = ProcessTypes()
+    core.register_process("tellurium_utc", TelluriumUTCStep)
+    run_test(core)
