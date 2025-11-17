@@ -49,7 +49,7 @@ class CompareResults(Step):
 
     def outputs(self):
         return {
-            'comparison': 'map[float]',
+            'comparison': 'map[map[map[float]]]',
         }
 
     def update(self, inputs):
@@ -95,7 +95,7 @@ class CompareResults(Step):
 
         return {
             "comparison": {
-                "species_mse": species_mse
+                '_add': {"species_mse": species_mse}
             }
         }
 
