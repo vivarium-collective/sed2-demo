@@ -121,7 +121,7 @@ class CopasiUTCStep(Step):
 
     def outputs(self):
         return {
-            'results': 'any',
+            'result': 'result',
         }
 
     def update(self, inputs):
@@ -160,13 +160,13 @@ class CopasiUTCStep(Step):
             if r in tc.columns
         }
 
-        results = {
+        result = {
             "time": time_list,
             "species_concentrations": species_json,
             "reaction_fluxes": flux_json,
         }
 
-        return {"results": results}
+        return {"result": result}
 
 
 
