@@ -6,16 +6,24 @@ from process_bigraph import Composite
 
 def run_comparison_experiment(core):
     doc = {
+        'species_concentrations': {},
+        'species_counts': {},
+        'results': {
+            'tellurium': {},
+            'copasi': {}},
         'tellurium_step': {
             '_type': 'step',
             'address': 'local:TelluriumUTCStep',
             'config': {
                 'model_source': 'models/BIOMD0000000012_url.xml',
-                'interval': 10,
+                'time': 10,
                 'n_points': 100,
             },
+            'inputs': {
+                'species_concentrations': ['species_concentrations'],
+                'species_counts': ['species_counts']},
             'outputs': {
-                'results': ['results', 'tellurium'],
+                'result': ['results', 'tellurium'],
             },
         },
         'copasi_step': {
@@ -23,11 +31,14 @@ def run_comparison_experiment(core):
             'address': 'local:CopasiUTCStep',
             'config': {
                 'model_source': 'models/BIOMD0000000012_url.xml',
-                'interval': 10,
+                'time': 10,
                 'n_points': 100,
             },
+            'inputs': {
+                'species_concentrations': ['species_concentrations'],
+                'species_counts': ['species_counts']},
             'outputs': {
-                'results': ['results', 'copasi'],
+                'result': ['results', 'copasi'],
             },
         },
         'comparison': {

@@ -32,7 +32,6 @@ def mean_squared_error_dict(a, b):
 
 
 class CompareResults(Step):
-
     config_schema = {}
 
     def __init__(self, config, core):
@@ -45,10 +44,12 @@ class CompareResults(Step):
 
     def outputs(self):
         return {
-            'comparison': 'map[float]',
+            'comparison_result': 'map[float]',
         }
 
     def update(self, inputs):
+        import ipdb; ipdb.set_trace()
+
         results_map = inputs.get("results", {})
         if not isinstance(results_map, dict) or len(results_map) < 2:
             raise ValueError(
@@ -80,7 +81,7 @@ class CompareResults(Step):
             flux_mse_by_id[rid] = flux_mse
 
         return {
-            'comparison': {
+            'comparison_result': {
                 'species_mse_by_id': species_mse_by_id,
                 'flux_mse_by_id': flux_mse_by_id,
             }

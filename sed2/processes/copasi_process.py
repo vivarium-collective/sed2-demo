@@ -162,8 +162,8 @@ class CopasiUTCStep(Step):
 
         result = {
             "time": time_list,
-            "species_concentrations": species_json,
-            "reaction_fluxes": flux_json,
+            "concentrations": species_json,
+            "fluxes": flux_json,
         }
 
         return {"result": result}

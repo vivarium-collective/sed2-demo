@@ -36,7 +36,7 @@ exclude = ["tests*", "docs*"]
 # spatio-flux = "spatio_flux.cli:main"
 
 # uv local editable sources
-# [tool.uv.sources]
+[tool.uv.sources]
 # bigraph-schema = { path = "../bigraph-schema", editable = true }
-# process-bigraph = { path = "../process-bigraph", editable = true }
+process-bigraph = { path = "../process-bigraph", editable = true }
 # bigraph-viz = { path = "../bigraph-viz", editable = true }

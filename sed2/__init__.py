@@ -1,11 +1,15 @@
 from sed2.processes import register_processes, get_sed_core
 
 sed_types = {
-    'result': 'map[list[float]]]',
+    'result': {
+        'time': 'list[float]',
+        'concentrations': 'map[list[float]]',
+        'fluxes': 'map[list[float]]'},
     'results': 'map[result]'}
 
 def register_types(core):
-    core.register_types(sed_types)
+    for key, schema in sed_types.items():
+        core.register(key, schema)
     return core
 
 def create_core():

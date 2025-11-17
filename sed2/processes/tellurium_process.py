@@ -37,7 +37,7 @@ class TelluriumUTCStep(Step):
         self._species_index = {sid: i for i, sid in enumerate(self.species_ids)}
 
         # ----- sim parameters -----
-        self.interval = float(self.config.get("time", 1.0))
+        self.time = float(self.config.get("time", 1.0))
         self.n_points = int(self.config.get("n_points", 2))
 
     # ------------------------------------------------
@@ -76,8 +76,10 @@ class TelluriumUTCStep(Step):
             if sid in self._species_index:
                 self.rr.setValue(sid, float(value))
 
+        import ipdb; ipdb.set_trace()
+
         # 3) Run simulation: from 0 -> interval, n_points samples
-        tc = self.rr.simulate(0, self.interval, self.n_points)
+        tc = self.rr.simulate(0, self.time, self.n_points)
         colnames = list(tc.colnames)
 
         # Build a mapping from *normalized* column names to indices.
@@ -122,8 +124,8 @@ class TelluriumUTCStep(Step):
         return {
             "result": {
                 "time": time,
-                "species_concentrations": species_update,
-                "reaction_fluxes": flux_json,
+                "concentrations": species_update,
+                "fluxes": flux_json,
             }
         }
 
@@ -180,7 +182,7 @@ class TelluriumSteadyStateStep(Step):
         }
 
     def outputs(self):
-        return {"result": "any"}
+        return {"result": "result"}
 
     # ------------------------------------------------
     # steady-state computation
@@ -226,8 +228,8 @@ class TelluriumSteadyStateStep(Step):
 
         result = {
             "time": time_list,
-            "species_concentrations": species_json,
-            "reaction_fluxes": flux_json,
+            "concentrations": species_json,
+            "fluxes": flux_json,
         }
 
         return {"result": result}
