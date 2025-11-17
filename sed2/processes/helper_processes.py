@@ -12,13 +12,14 @@ class CompareResults(Step):
 
     def inputs(self):
         return {
-            "tellurium_results": "any",
-            "copasi_results": "any",
+            'results': 'map[map[list[float]]]',
+            'tellurium_results': 'any',
+            'copasi_results': 'any',
         }
 
     def outputs(self):
         return {
-            "comparison": "string",
+            'comparison': 'string',
         }
 
     def update(self, inputs):

@@ -1,0 +1,5 @@
+.devenv.flake.nix
+.devenv/
+__pycache__/
+sed2_demo.egg-info/
+uv.lock
