@@ -11,7 +11,7 @@ class TelluriumUTCStep(Step):
     config_schema = {
         "model_source": "string",
         "time": "float",
-        "n_points": "integer"
+        "n_points": "integer",
     }
 
     def __init__(self, config=None, core=None):
@@ -82,27 +82,34 @@ class TelluriumUTCStep(Step):
         tc = self.rr.simulate(0, self.interval, self.n_points)
         colnames = list(tc.colnames)
 
+        # Build a mapping from *normalized* column names to indices.
+        # This turns "[S1]" -> "S1", etc.
+        norm_to_index: Dict[str, int] = {
+            name.strip("[]"): i for i, name in enumerate(colnames)
+        }
+
         # Time
-        time = tc[:, colnames.index("time")].tolist()
+        if "time" not in norm_to_index:
+            raise RuntimeError(f"'time' column not found in Tellurium result. Columns: {colnames}")
+        time_idx = norm_to_index["time"]
+        time = tc[:, time_idx].tolist()
 
         # 4) Species trajectories
-        species_json: Dict[str, list] = {}
+        species_update: Dict[str, list] = {}
         species_cols: Dict[str, int] = {}
         for sid in self.species_ids:
-            if sid in colnames:
-                idx = colnames.index(sid)
+            idx = norm_to_index.get(sid)
+            if idx is not None:
                 species_cols[sid] = idx
-                species_json[sid] = tc[:, idx].tolist()
+                species_update[sid] = tc[:, idx].tolist()
 
         # 5) Reaction flux time series
         flux_json = {rid: [] for rid in self.reaction_ids}
 
         # For each time point, set state and query reaction rates
         for row in range(tc.shape[0]):
-            # build concentration vector at this row
-            for sid in self.species_ids:
-                if sid in species_cols:
-                    self.rr.setValue(sid, float(tc[row, species_cols[sid]]))
+            for sid, idx in species_cols.items():
+                self.rr.setValue(sid, float(tc[row, idx]))
 
             rates = self.rr.getReactionRates()
             for j, rid in enumerate(self.reaction_ids):
@@ -110,15 +117,14 @@ class TelluriumUTCStep(Step):
 
         # 6) Restore last state (final row of the timecourse)
         last_row = tc.shape[0] - 1
-        for sid in self.species_ids:
-            if sid in species_cols:
-                self.rr.setValue(sid, float(tc[last_row, species_cols[sid]]))
+        for sid, idx in species_cols.items():
+            self.rr.setValue(sid, float(tc[last_row, idx]))
 
         # 7) Send update
         return {
             "results": {
                 "time": time,
-                "species_concentrations": species_json,
+                "species_concentrations": species_update,
                 "reaction_fluxes": flux_json,
             }
         }
@@ -129,8 +135,8 @@ def run_test(core):
     step = TelluriumUTCStep(
         {
             "model_source": "models/BIOMD0000000012_url.xml",
-            'time': 10.0,
-            'n_points': 5,
+            "time": 10.0,
+            "n_points": 5,
         },
         core=core,
     )
