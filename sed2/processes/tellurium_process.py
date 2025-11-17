@@ -76,8 +76,6 @@ class TelluriumUTCStep(Step):
             if sid in self._species_index:
                 self.rr.setValue(sid, float(value))
 
-        import ipdb; ipdb.set_trace()
-
         # 3) Run simulation: from 0 -> interval, n_points samples
         tc = self.rr.simulate(0, self.time, self.n_points)
         colnames = list(tc.colnames)
@@ -120,15 +118,16 @@ class TelluriumUTCStep(Step):
         for sid, idx in species_cols.items():
             self.rr.setValue(sid, float(tc[last_row, idx]))
 
+        import ipdb; ipdb.set_trace()
+
         # 7) Send update
         return {
             "result": {
                 "time": time,
-                "concentrations": species_update,
-                "fluxes": flux_json,
+                "concentrations": {'_add': species_update},
+                "fluxes": {'_add': flux_json},
             }
         }
-
 
 
 class TelluriumSteadyStateStep(Step):

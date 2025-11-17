@@ -34,9 +34,6 @@ def mean_squared_error_dict(a, b):
 class CompareResults(Step):
     config_schema = {}
 
-    def __init__(self, config, core):
-        super().__init__(config, core)
-
     def inputs(self):
         return {
             'results': 'results',
@@ -44,7 +41,7 @@ class CompareResults(Step):
 
     def outputs(self):
         return {
-            'comparison_result': 'map[float]',
+            'comparison': 'map[float]',
         }
 
     def update(self, inputs):
@@ -81,7 +78,7 @@ class CompareResults(Step):
             flux_mse_by_id[rid] = flux_mse
 
         return {
-            'comparison_result': {
+            'comparison': {
                 'species_mse_by_id': species_mse_by_id,
                 'flux_mse_by_id': flux_mse_by_id,
             }

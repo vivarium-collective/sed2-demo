@@ -162,9 +162,10 @@ class CopasiUTCStep(Step):
 
         result = {
             "time": time_list,
-            "concentrations": species_json,
-            "fluxes": flux_json,
-        }
+            "concentrations": {'_add': species_json},
+            "fluxes": {'_add': flux_json}}
+
+        import ipdb; ipdb.set_trace()
 
         return {"result": result}
 

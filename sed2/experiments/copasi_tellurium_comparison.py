@@ -49,16 +49,16 @@ def run_comparison_experiment(core):
                 'results': ['results'],
             },
             'outputs': {
-                'comparison': ['comparison'],
+                'comparison': ['comparison_result'],
             },
         },
     }
 
     doc = {'state': doc}
     sim = Composite(doc, core=core)
-    result = sim.run({})
+    sim.run(0)
 
-
+    import ipdb; ipdb.set_trace()
 
 
 if __name__ == '__main__':
