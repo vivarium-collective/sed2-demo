@@ -10,8 +10,8 @@ class TelluriumUTCStep(Step):
 
     config_schema = {
         "model_source": "string",
-        "time": "float",      # duration
-        "n_points": "integer" # time samples
+        "time": "float",
+        "n_points": "integer"
     }
 
     def __init__(self, config=None, core=None):
@@ -19,7 +19,7 @@ class TelluriumUTCStep(Step):
 
         model_source = self.config["model_source"]
 
-        # ----- Resolve path like CopasiUTCStep -----
+        # ----- Resolve path -----------
         if not model_source.startswith(("http://", "https://")):
             model_path = Path(model_source)
             if not model_path.is_absolute():
@@ -66,7 +66,7 @@ class TelluriumUTCStep(Step):
     # update logic
     # ------------------------------------------------
     def update(self, inputs):
-        # 1) Choose source (like CopasiUTCStep)
+        # 1) Choose source
         incoming = (
             inputs.get("species_counts")
             or inputs.get("species_concentrations")
@@ -74,7 +74,6 @@ class TelluriumUTCStep(Step):
         )
 
         # 2) Update species concentrations using Tellurium's setValue
-        #    (this matches the TelluriumProcess style you showed)
         for sid, value in incoming.items():
             if sid in self._species_index:
                 self.rr.setValue(sid, float(value))
@@ -115,7 +114,7 @@ class TelluriumUTCStep(Step):
             if sid in species_cols:
                 self.rr.setValue(sid, float(tc[last_row, species_cols[sid]]))
 
-        # 7) JSON-safe result (matches CopasiUTCStep format)
+        # 7) Send update
         return {
             "results": {
                 "time": time,
