@@ -1,0 +1,42 @@
+{
+  "state": {
+    "species_concentrations": {},
+    "species_counts": {},
+
+    "tellurium_step": {
+      "_type": "step",
+      "address": "local:TelluriumUTCStep",
+      "config": {
+        "model_source": "models/BIOMD0000000012_url.xml",
+        "time": 10,
+        "n_points": 10},
+      "inputs": {
+        "species_concentrations": ["species_concentrations"],
+        "species_counts": ["species_counts"]},
+      "outputs": {
+        "result": ["results", "tellurium"]}},
+
+    "copasi_step": {
+      "_type": "step",
+      "address": "local:CopasiUTCStep",
+      "config": {
+        "model_source": "models/BIOMD0000000012_url.xml",
+        "time": 10,
+        "n_points": 10},
+      "inputs": {
+        "species_concentrations": ["species_concentrations"],
+        "species_counts": ["species_counts"]},
+      "outputs": {
+        "result": ["results", "copasi"]}},
+
+    "comparison": {
+      "_type": "step",
+      "address": "local:CompareResults",
+      "config": {},
+      "inputs": {
+        "results": ["results"]},
+      "outputs": {
+        "comparison": ["comparison_result"]}}},
+
+  "bridge": {
+    "result": ["comparison_result"]}}

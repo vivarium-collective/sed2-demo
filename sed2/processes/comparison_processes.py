@@ -95,7 +95,7 @@ class CompareResults(Step):
 
         return {
             "comparison": {
-                '_add': {"species_mse": species_mse}
+                "species_mse": species_mse
             }
         }
 

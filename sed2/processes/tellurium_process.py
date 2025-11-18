@@ -127,8 +127,8 @@ class TelluriumUTCStep(Step):
         # 7) Send update — structured for easy comparison / aggregation
         result = {
                 "time": time,
-                "concentrations": {'_add': species_update},
-                # "fluxes": {'_add': flux_json},
+                "concentrations": species_update,
+                # "fluxes": flux_json,
             }
         print(f'TelluriumUTCStep result: {result}')
         return {

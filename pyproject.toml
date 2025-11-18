@@ -15,6 +15,7 @@ dependencies = [
     "bigraph-viz",
     "copasi-basico",
     "tellurium",
+    "rest-process",
     "pytest"
 ]
 
@@ -37,6 +38,7 @@ exclude = ["tests*", "docs*"]
 
 # uv local editable sources
 [tool.uv.sources]
-# bigraph-schema = { path = "../bigraph-schema", editable = true }
+bigraph-schema = { path = "../bigraph-schema", editable = true }
 process-bigraph = { path = "../process-bigraph", editable = true }
+rest-process = { path = "../rest-process", editable = true }
 # bigraph-viz = { path = "../bigraph-viz", editable = true }

@@ -161,7 +161,7 @@ class CopasiUTCStep(Step):
 
         result = {
             "time": time_list,
-            "concentrations": {'_add': species_update},
+            "concentrations": species_update,
         }
 
         print(f'CopasiUTCStep result: {result}')
