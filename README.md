@@ -8,6 +8,10 @@ This project uses `uv` so all you have to do is clone and run `uv sync` (as long
 
 ## usage
 
+You can run as either a command or a server.
+
+### command
+
 To run the copasi/tellurium comparison demo you can invoke the `process_bigraph.run` command with the comparison document json:
 
 ```
@@ -15,6 +19,12 @@ uv run python -m process_bigraph.run --document biocompose/documents/copasi_tell
 ```
 
 The resulting matrix is the MSE of the two runs in the respective simulators.
+
+```
+{'result': {'species_mse': {'tellurium': {'tellurium': 0.0, 'copasi': 4.5200220985492734e-07}, 'copasi': {'tellurium': 4.5200220985492734e-07, 'copasi': 0.0}}}}
+```
+
+### server
 
 To run the same thing using the process server you can invoke the `rest_process.start` command with the same comparison document:
 

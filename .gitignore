@@ -1,6 +1,6 @@
 .devenv.flake.nix
 .devenv/
 __pycache__/
-biocompose_demo.egg-info/
+*.egg-info/
 uv.lock
 devenv.lock
