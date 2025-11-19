@@ -64,7 +64,7 @@ class CompareResults(Step):
 
         # Extract species time-series per engine
         species_by_id = {
-            rid: (results_map[rid].get("concentrations", {}) or {})
+            rid: (results_map[rid].get("species_concentrations", {}) or {})
             for rid in engine_ids
         }
 

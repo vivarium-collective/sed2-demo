@@ -3,7 +3,7 @@ from biocompose.processes import register_processes, get_sed_core
 sed_types = {
     'result': {
         'time': 'list[float]',
-        'concentrations': 'map[list[float]]',
+        'species_concentrations': 'map[list[float]]',
     },
     'results': 'map[result]'
 }

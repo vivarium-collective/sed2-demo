@@ -159,7 +159,7 @@ class CopasiUTCStep(Step):
 
         result = {
             "time": time_list,
-            "concentrations": species_update,
+            "species_concentrations": species_update,
         }
 
         return {"result": result}
@@ -298,7 +298,7 @@ class CopasiSteadyStateStep(Step):
 
         results = {
             "time": time_list,
-            "concentrations": species_json,  # SBML IDs as keys
+            "species_concentrations": species_json,  # SBML IDs as keys
             "fluxes": flux_json,
         }
 
@@ -359,7 +359,7 @@ class CopasiUTCProcess(Process):
     def initial_state(self) -> Dict[str, Any]:
         # Export *SBML IDs* externally
         return {
-            "concentrations": {
+            "species_concentrations": {
                 sbml_id: _get_transient_concentration(
                     name=self.sbml_to_name[sbml_id],  # COPASI name
                     dm=self.dm
@@ -373,13 +373,13 @@ class CopasiUTCProcess(Process):
     # -----------------------------------------------------------------
     def inputs(self):
         return {
-            "concentrations": "map[float]",  # SBML IDs
-            "counts": "map[float]",          # SBML IDs
+            "species_concentrations": "map[float]",  # SBML IDs
+            "species_counts": "map[float]",          # SBML IDs
         }
 
     def outputs(self):
         return {
-            "concentrations": "map[float]",  # SBML IDs
+            "species_concentrations": "map[float]",  # SBML IDs
             "fluxes": "map[float]",
             "time": "list[float]",
         }
@@ -390,8 +390,8 @@ class CopasiUTCProcess(Process):
     def update(self, inputs, interval):
         # --- 1) Determine incoming species map (SBML IDs)
         incoming = (
-            inputs.get("counts")
-            or inputs.get("concentrations")
+            inputs.get("species_counts")
+            or inputs.get("species_concentrations")
             or {}
         )
 
@@ -435,7 +435,7 @@ class CopasiUTCProcess(Process):
         }
 
         return {
-            "concentrations": species_concentrations,
+            "species_concentrations": species_concentrations,
             "fluxes": reaction_fluxes,
             "time": time,
         }
