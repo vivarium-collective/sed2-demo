@@ -127,7 +127,7 @@ class TelluriumUTCStep(Step):
                 "time": time,
                 "columns": [c.strip("[]") for c in colnames if c != "time"],
                 "values": tc[:, 1:].tolist(),
-                "n_spacial_dimensions": (tc.shape[0], tc.shape[1] - 1),
+                # "n_spacial_dimensions": (tc.shape[0], tc.shape[1] - 1),
                 # "fluxes": flux_json,
             }
 
