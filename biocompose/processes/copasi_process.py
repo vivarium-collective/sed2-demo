@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 from typing import Dict, Any
+
+from pandas import DataFrame
 from process_bigraph import Process, Step, Composite, ProcessTypes, gather_emitter_results
 import COPASI
 from basico import (
@@ -123,7 +125,7 @@ class CopasiUTCStep(Step):
 
     def outputs(self):
         return {
-            'result': 'result',
+            'result': 'numeric_result',
         }
 
     def update(self, inputs):
@@ -139,7 +141,7 @@ class CopasiUTCStep(Step):
             _set_initial_concentrations(changes, self.dm)
 
         # --- Run COPASI time course with intervals = n_points - 1 ---
-        tc = run_time_course(
+        tc: DataFrame = run_time_course(
             start_time=0.0,
             duration=self.config['time'],
             intervals=self.intervals,
@@ -151,15 +153,11 @@ class CopasiUTCStep(Step):
         # Time series
         time_list = tc.index.to_list()
 
-        species_update = {
-            sid: tc[sid].to_list()
-            for sid in self.species_ids
-            if sid in tc.columns
-        }
-
         result = {
             "time": time_list,
-            "species_concentrations": species_update,
+            "columns": tc.columns,
+            "values": tc.values.tolist(),
+            "n_spacial_dimensions": tc.shape,
         }
 
         return {"result": result}

@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from typing import Dict, Any
 
+import numpy
 from process_bigraph import Step, ProcessTypes
 import tellurium as te
 
@@ -61,7 +62,7 @@ class TelluriumUTCStep(Step):
         }
 
     def outputs(self):
-        return {"result": "result"}
+        return {"result": "numeric_result"}
 
     # ------------------------------------------------
     # update logic
@@ -98,13 +99,11 @@ class TelluriumUTCStep(Step):
         time = tc[:, time_idx].tolist()
 
         # 4) Species trajectories
-        species_update: Dict[str, list] = {}
         species_cols: Dict[str, int] = {}
         for sid in self.species_ids:
             idx = norm_to_index.get(sid)
             if idx is not None:
                 species_cols[sid] = idx
-                species_update[sid] = tc[:, idx].tolist()
 
         # 5) Reaction flux time series
         flux_json = {rid: [] for rid in self.reaction_ids}
@@ -126,7 +125,9 @@ class TelluriumUTCStep(Step):
         # 7) Send update — structured for easy comparison / aggregation
         result = {
                 "time": time,
-                "species_concentrations": species_update,
+                "columns": [c.strip("[]") for c in colnames if c != "time"],
+                "values": tc[:, 1:].tolist(),
+                "n_spacial_dimensions": (tc.shape[0], tc.shape[1] - 1),
                 # "fluxes": flux_json,
             }
 
